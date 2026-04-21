@@ -218,6 +218,34 @@ func TestBuildDesiredState_MissingSecretErrors(t *testing.T) {
 	}
 }
 
+func TestMergeIngressForNodeOrdersRoutesByPort(t *testing.T) {
+	t.Parallel()
+
+	merged, err := mergeIngressForNode([]string{config.DefaultWebRole}, []DeploySnapshot{
+		{
+			Ingress: &ingressJSON{
+				Mode:         "public",
+				TLS:          ingressTLSJSON{Mode: "auto"},
+				RedirectHTTP: true,
+				Routes: []ingressRouteJSON{
+					{Match: ingressMatchJSON{Hostname: "app.example.com", PathPrefix: "/"}, Target: ingressTargetJSON{Environment: "production", Service: "web", Port: "https"}},
+					{Match: ingressMatchJSON{Hostname: "app.example.com", PathPrefix: "/"}, Target: ingressTargetJSON{Environment: "production", Service: "web", Port: "http"}},
+				},
+			},
+			IngressServiceKind: config.ServiceKindWeb,
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if merged == nil || len(merged.Routes) != 2 {
+		t.Fatalf("routes = %#v", merged)
+	}
+	if merged.Routes[0].Target.Port != "http" || merged.Routes[1].Target.Port != "https" {
+		t.Fatalf("route order = %#v", merged.Routes)
+	}
+}
+
 func TestBuildAggregatedDesiredStateMergesEnvironmentsIngressAndPeers(t *testing.T) {
 	webNode := config.SoloNode{Labels: []string{config.DefaultWebRole}}
 	snapshots := []DeploySnapshot{

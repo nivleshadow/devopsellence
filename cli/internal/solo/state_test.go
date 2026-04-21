@@ -81,6 +81,47 @@ func TestStateStoreRoundTrip(t *testing.T) {
 	}
 }
 
+func TestStateStoreReadNormalizesLegacyState(t *testing.T) {
+	t.Parallel()
+
+	path := filepath.Join(t.TempDir(), "solo-state.json")
+	if err := os.WriteFile(path, []byte(`{
+  "schema_version": 1,
+  "nodes": {
+    "web-a": {
+      "host": "203.0.113.10",
+      "user": "root"
+    }
+  },
+  "attachments": {
+    "/workspace/demo\nproduction": {
+      "workspace_root": "/workspace/demo",
+      "node_names": ["web-a", "web-a", ""]
+    }
+  }
+}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	loaded, err := NewStateStore(path).Read()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := loaded.Nodes["web-a"].AgentStateDir; got != "/var/lib/devopsellence" {
+		t.Fatalf("agent_state_dir = %q, want default", got)
+	}
+	attachment := loaded.Attachments["/workspace/demo\nproduction"]
+	if attachment.WorkspaceKey != "/workspace/demo" {
+		t.Fatalf("workspace_key = %q", attachment.WorkspaceKey)
+	}
+	if attachment.Environment != "production" {
+		t.Fatalf("environment = %q", attachment.Environment)
+	}
+	if want := []string{"web-a"}; !reflect.DeepEqual(attachment.NodeNames, want) {
+		t.Fatalf("node_names = %#v, want %#v", attachment.NodeNames, want)
+	}
+}
+
 func TestAttachmentCRUD(t *testing.T) {
 	t.Parallel()
 

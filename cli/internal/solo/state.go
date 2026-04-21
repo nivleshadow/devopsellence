@@ -80,10 +80,7 @@ func (s *StateStore) Read() (State, error) {
 	if err := json.Unmarshal(data, &current); err != nil {
 		return State{}, err
 	}
-	if current.SchemaVersion == 0 {
-		current.SchemaVersion = soloStateSchemaVersion
-	}
-	current.ensureDefaults()
+	current.normalize()
 	return current, nil
 }
 
@@ -91,7 +88,7 @@ func (s *StateStore) Write(current State) error {
 	if s == nil || strings.TrimSpace(s.Path) == "" {
 		return errors.New("solo state store path is required")
 	}
-	current.ensureDefaults()
+	current.normalize()
 	if err := os.MkdirAll(filepath.Dir(s.Path), 0o755); err != nil {
 		return err
 	}
@@ -215,6 +212,10 @@ func (s *State) ensureDefaults() {
 	if s.Snapshots == nil {
 		s.Snapshots = map[string]DeploySnapshot{}
 	}
+}
+
+func (s *State) normalize() {
+	s.ensureDefaults()
 	for name, node := range s.Nodes {
 		s.Nodes[name] = NormalizeNode(node)
 	}
@@ -231,6 +232,10 @@ func (s *State) ensureDefaults() {
 		}
 		s.Attachments[key] = attachment
 	}
+}
+
+func (s *State) Normalize() {
+	s.normalize()
 }
 
 func NormalizeNode(node config.SoloNode) config.SoloNode {

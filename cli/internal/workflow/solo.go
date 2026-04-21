@@ -396,6 +396,7 @@ func (a *App) republishSoloNodes(ctx context.Context, current solo.State, nodeNa
 	var errs []string
 	var wg sync.WaitGroup
 
+	current.Normalize()
 	nodes, err := a.resolveSoloNodes(current, nodeNames)
 	if err != nil {
 		return err
